@@ -50,3 +50,8 @@ Linked to the Vercel project `skylar-pairing`. Pushing to `main` deploys to prod
 
 `countries.json` (dial-code list), `background.jpg` (page artwork),
 `skylar-x-ultra-1.2.apk` (Android wrapper — its source project is separate and not committed here).
+
+## Deployment
+
+Linked to the Vercel project `skylar-pairing` (production branch: `main`).
+Pushing to `main` deploys to production automatically.
