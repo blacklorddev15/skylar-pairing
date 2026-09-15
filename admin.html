@@ -70,6 +70,14 @@
         <h1 style="font-size:16px">Live sessions</h1>
         <div id="sessionsList" class="mono"></div>
       </div>
+
+      <div class="card">
+        <h1 style="font-size:16px">Clear disconnected sessions</h1>
+        <p class="sub">Deletes rows the bot has already logged out. Sessions that are still connected are never touched.</p>
+        <button class="btn ghost" id="clearSessionsBtn">Clear disconnected sessions</button>
+        <div id="clearMsg" class="status-box"></div>
+        <p class="sub" style="margin-top:8px">This clears the database only. To unlink a device fully, run <span class="mono">/delpair &lt;number&gt;</span> in the bot first — that revokes the WhatsApp link and clears the session files.</p>
+      </div>
     </div>
 
     <footer class="footer"><span>Skylar Ecosystem</span></footer>

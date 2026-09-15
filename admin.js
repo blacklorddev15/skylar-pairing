@@ -123,6 +123,42 @@ $('genKeyBtn').addEventListener('click', async () => {
   }
 });
 
+// Clears rows the bot has already logged out. Counts first so the confirmation shows
+// the real number, and re-reads the lists afterwards so the counters drop immediately.
+$('clearSessionsBtn').addEventListener('click', async () => {
+  const box = $('clearMsg');
+  box.textContent = '⏳ Counting disconnected sessions…';
+  box.className = 'status-box show info';
+
+  const pre = await api('clear_sessions', { dryRun: true });
+  if (pre.error) {
+    box.textContent = '❌ ' + pre.error;
+    box.className = 'status-box show err';
+    return;
+  }
+  const n = pre.wouldClear || 0;
+  if (!n) {
+    box.textContent = '✓ Nothing to clear — no disconnected sessions.';
+    box.className = 'status-box show ok';
+    return;
+  }
+  if (!confirm(`Delete ${n} disconnected session${n === 1 ? '' : 's'}?\n\nThis cannot be undone. Connected sessions are not touched.`)) {
+    box.textContent = 'Cancelled — nothing was deleted.';
+    box.className = 'status-box show info';
+    return;
+  }
+
+  const d = await api('clear_sessions', {});
+  if (!d.success) {
+    box.textContent = '❌ ' + (d.error || 'Failed');
+    box.className = 'status-box show err';
+    return;
+  }
+  box.textContent = `✅ Cleared ${d.cleared} disconnected session${d.cleared === 1 ? '' : 's'}.`;
+  box.className = 'status-box show ok';
+  await refreshAll();
+});
+
 (async () => {
   if (pw) { const ok = await tryLogin(false); if (!ok) sessionStorage.removeItem('vn_admin_pw'); }
 })();

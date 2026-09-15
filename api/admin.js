@@ -1,6 +1,6 @@
 // POST /api/admin  { action, password?, ... }  or GET /api/admin?action=...
 // Actions: login | stats | sessions | keys | generate_key | set_notice | set_premium
-//          | current_db | switch_db | servers | reset_heartbeats
+//          | current_db | switch_db | servers | reset_heartbeats | clear_sessions
 // Protected by ADMIN_PASSWORD env var (sent as X-Admin-Password header or body.password).
 const {
   query,
@@ -123,6 +123,26 @@ module.exports = async function handler(req, res) {
       case 'reset_heartbeats': {
         await query(`UPDATE skylar_server_heartbeats SET last_seen = now() - interval '1 hour'`);
         return json(res, 200, { success: true });
+      }
+
+      // Removes rows the bot has already logged out. The predicate is exactly
+      // "disconnected", so a session that is still linked can never be deleted here —
+      // the worst case is that a stale row survives.
+      //
+      // Note: this only clears the database. Revoking the WhatsApp link itself is the
+      // bot's job (/delpair), which also removes ./sessions/<id> and the GitHub backup.
+      // Pass { dryRun: true } to get the count without deleting anything.
+      case 'clear_sessions': {
+        if (body.dryRun) {
+          const { rows } = await query(
+            "SELECT count(*)::int AS n FROM skylar_sessions WHERE LOWER(status) = 'disconnected'"
+          );
+          return json(res, 200, { success: true, dryRun: true, wouldClear: rows[0].n });
+        }
+        const { rows } = await query(
+          "DELETE FROM skylar_sessions WHERE LOWER(status) = 'disconnected' RETURNING id"
+        );
+        return json(res, 200, { success: true, cleared: rows.length });
       }
 
       default:
