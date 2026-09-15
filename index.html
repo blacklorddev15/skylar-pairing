@@ -985,6 +985,16 @@
         <textarea id="adminKeysOut" readonly placeholder="Generated keys appear here…"></textarea>
         <button id="adminKeysRefresh" class="btn-ghost" data-i18n="premRefresh">REFRESH KEYS</button>
 
+        <div class="divider"></div>
+        <label data-i18n="sessSection">SESSIONS</label>
+        <div class="admin-row"><span data-i18n="sessCountLabel">Stored / disconnected / online</span><b id="adminSessCount">—</b></div>
+        <textarea id="adminSessOut" readonly placeholder="Session list appears here…"></textarea>
+        <div class="admin-btns">
+          <button id="adminSessRefresh" class="btn-ghost" data-i18n="sessRefresh">REFRESH SESSIONS</button>
+          <button id="adminSessClear" class="btn-danger" data-i18n="sessClear">CLEAR DISCONNECTED</button>
+        </div>
+        <p class="admin-note" data-i18n="sessNote">Clears rows the bot has already logged out — sessions still connected are never touched. To unlink a device fully, run /delpair in the bot first.</p>
+
         <p class="admin-msg" id="adminMsg" style="display:none"></p>
         <p class="admin-note" data-i18n="adminNote">After saving a database, also update NEON_DATABASE_URL on the Pterodactyl panel (or in settings.js) — otherwise the bot keeps using the old database. The site redeploys automatically (~30s).</p>
       </div>
@@ -1043,7 +1053,10 @@
         premGen: 'GENERATE 5 KEYS', premRefresh: 'REFRESH KEYS',
         premKeyLabel: 'PREMIUM KEY', premNext: 'CONTINUE TO PAIR', premHint: 'Need a key? Contact the owner.',
         premOn: 'ON', premOff: 'OFF', premEnable: 'ENABLE PREMIUM', premDisable: 'DISABLE PREMIUM',
-        adminNote: 'After saving a database, also update NEON_DATABASE_URL on the Pterodactyl panel (or in settings.js) — otherwise the bot keeps using the old database. The site redeploys automatically (~30s).'
+        adminNote: 'After saving a database, also update NEON_DATABASE_URL on the Pterodactyl panel (or in settings.js) — otherwise the bot keeps using the old database. The site redeploys automatically (~30s).',
+        sessSection: 'SESSIONS', sessCountLabel: 'Stored / disconnected / online',
+        sessRefresh: 'REFRESH SESSIONS', sessClear: 'CLEAR DISCONNECTED',
+        sessNote: 'Clears rows the bot has already logged out — sessions still connected are never touched. To unlink a device fully, run /delpair in the bot first.'
       },
       sw: {
         adminBtn: 'ADMIN PANEL', heroLabel: 'AETHER NETWORK / NODE 07', heroTitleA: 'Unganisha', heroTitleB: 'nambari yako.',
@@ -1083,7 +1096,10 @@
         premGen: 'TOA FUNGUO 5', premRefresh: 'ONESHA FUNGUO',
         premKeyLabel: 'FUNGUO LA PREMIUM', premNext: 'ENDELEA KUUNGANISHA', premHint: 'Unahitaji funguo? Wasiliana na mmiliki.',
         premOn: 'WASHA', premOff: 'ZIMA', premEnable: 'WASHA PREMIUM', premDisable: 'ZIMA PREMIUM',
-        adminNote: 'Baada ya kuhifadhi database, pia badilisha NEON_DATABASE_URL kwenye paneli (au settings.js) — la sivyo bot itaendelea kutumia database ya zamani. Tovuti inajipanga upya yenyewe (~sekunde 30).'
+        adminNote: 'Baada ya kuhifadhi database, pia badilisha NEON_DATABASE_URL kwenye paneli (au settings.js) — la sivyo bot itaendelea kutumia database ya zamani. Tovuti inajipanga upya yenyewe (~sekunde 30).',
+        sessSection: 'SESSIONS', sessCountLabel: 'Zilizohifadhiwa / zilizokatwa / mtandaoni',
+        sessRefresh: 'ONYESHA SESSIONS', sessClear: 'FUTA ZILIZOKATWA',
+        sessNote: 'Hufuta safu ambazo bot tayari imetoka — sessions zilizo hai haziguswi. Ili kuondoa kifaa kabisa, tumia /delpair kwenye bot kwanza.'
       },
       ar: {
         adminBtn: 'لوحة التحكم', heroLabel: 'شبكة الأثير / العقدة 07', heroTitleA: 'اربط', heroTitleB: 'رقمك.',
@@ -1123,7 +1139,10 @@
         premGen: 'توليد 5 مفاتيح', premRefresh: 'تحديث المفاتيح',
         premKeyLabel: 'المفتاح المميز', premNext: 'متابعة الربط', premHint: 'تحتاج مفتاحاً؟ تواصل مع المالك.',
         premOn: 'مفعل', premOff: 'معطل', premEnable: 'تفعيل الوضع المميز', premDisable: 'إيقاف الوضع المميز',
-        adminNote: 'بعد حفظ قاعدة البيانات، حدّث أيضاً NEON_DATABASE_URL على لوحة Pterodactyl (أو في settings.js) — وإلا سيستمر البوت في استخدام قاعدة البيانات القديمة. يتم إعادة نشر الموقع تلقائياً (~30 ثانية).'
+        adminNote: 'بعد حفظ قاعدة البيانات، حدّث أيضاً NEON_DATABASE_URL على لوحة Pterodactyl (أو في settings.js) — وإلا سيستمر البوت في استخدام قاعدة البيانات القديمة. يتم إعادة نشر الموقع تلقائياً (~30 ثانية).',
+        sessSection: 'الجلسات', sessCountLabel: 'المخزنة / غير المتصلة / المتصلة',
+        sessRefresh: 'تحديث الجلسات', sessClear: 'حذف غير المتصلة',
+        sessNote: 'يحذف الصفوف التي سجّل البوت خروجها فقط — الجلسات المتصلة لا تُمس. لإلغاء ربط جهاز بالكامل، استخدم /delpair في البوت أولاً.'
       }
     };
     let lang = localStorage.getItem('varnoxLang') || 'en';
@@ -1488,6 +1507,7 @@
         show('adminLogin', false);
         show('adminPanel', true);
         loadPremium();
+        loadSessions();
       } catch (err) {
         $('adminLoginError').textContent = err.message;
         $('adminLoginError').style.display = 'block';
@@ -1533,6 +1553,46 @@
     };
 
     /* ── Premium mode ──────────────────────────────── */
+    // Sessions. Listing is read-only; clearing only ever removes rows the bot has already
+    // logged out, and it fetches a count first so the prompt shows the real number.
+    async function loadSessions() {
+      try {
+        const [stats, list] = await Promise.all([adminPost('stats'), adminPost('sessions')]);
+        const rows = (list && list.sessions) || [];
+        const disc = rows.filter((r) => String(r.status).toLowerCase() === 'disconnected').length;
+        $('adminSessCount').textContent = `${rows.length} / ${disc} / ${stats.onlineNow != null ? stats.onlineNow : '—'}`;
+        $('adminSessOut').value = rows.length
+          ? rows.map((r) => `${String(r.id).slice(0, 32).padEnd(34)} ${String(r.phone || '').padEnd(13)} ${r.status}`).join('\n')
+          : 'No sessions stored.';
+      } catch (err) { adminMsg(err.message, true); }
+    }
+
+    $('adminSessRefresh').onclick = async () => {
+      $('adminSessRefresh').disabled = true;
+      try { await loadSessions(); adminMsg('Session list refreshed.'); }
+      catch (err) { adminMsg(err.message, true); }
+      finally { $('adminSessRefresh').disabled = false; }
+    };
+
+    $('adminSessClear').onclick = async () => {
+      $('adminSessClear').disabled = true;
+      try {
+        const pre = await adminPost('clear_sessions', { dryRun: true });
+        if (pre.error) { adminMsg(pre.error, true); return; }
+        const n = pre.wouldClear || 0;
+        if (!n) { adminMsg('Nothing to clear — no disconnected sessions.'); return; }
+        if (!confirm(`Delete ${n} disconnected session${n === 1 ? '' : 's'}?\n\nThis cannot be undone. Connected sessions are not touched.`)) {
+          adminMsg('Cancelled — nothing was deleted.');
+          return;
+        }
+        const done = await adminPost('clear_sessions');
+        if (done.error || done.success === false) { adminMsg(done.error || 'Failed.', true); return; }
+        adminMsg(`Cleared ${done.cleared} disconnected session${done.cleared === 1 ? '' : 's'}.`);
+        await loadSessions();
+      } catch (err) { adminMsg(err.message, true); }
+      finally { $('adminSessClear').disabled = false; }
+    };
+
     async function loadPremium() {
       try {
         const data = await adminCall('get_premium');
