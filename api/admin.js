@@ -1,6 +1,7 @@
 // POST /api/admin  { action, password?, ... }  or GET /api/admin?action=...
 // Actions: login | stats | sessions | keys | generate_key | set_notice | set_premium
 //          | current_db | switch_db | servers | reset_heartbeats | clear_sessions
+//          | test_db
 // Protected by ADMIN_PASSWORD env var (sent as X-Admin-Password header or body.password).
 const {
   query,
@@ -137,6 +138,36 @@ module.exports = async function handler(req, res) {
       case 'reset_heartbeats': {
         await query(`UPDATE skylar_server_heartbeats SET last_seen = now() - interval '1 hour'`);
         return json(res, 200, { success: true });
+      }
+
+      // Connects to a candidate database and closes again, so the admin can check a new
+      // Neon string before switching the site to it. Read-only: one SELECT 1.
+      case 'test_db': {
+        const target = String(body.url || '').trim();
+        if (!/^postgres(ql)?:\/\//i.test(target)) {
+          return json(res, 200, {
+            success: false,
+            message: 'That does not look like a PostgreSQL connection string.',
+          });
+        }
+        const { Pool } = require('pg');
+        const probe = new Pool({
+          connectionString: target.split('?')[0],
+          ssl: { rejectUnauthorized: false },
+          connectionTimeoutMillis: 8000,
+          max: 1,
+        });
+        try {
+          await probe.query('SELECT 1');
+          return json(res, 200, { success: true, message: 'Connection OK — the database answered.' });
+        } catch (e) {
+          return json(res, 200, {
+            success: false,
+            message: 'Could not connect: ' + (e && e.message ? e.message : 'unknown error'),
+          });
+        } finally {
+          await probe.end().catch(() => {});
+        }
       }
 
       // Removes rows the bot has already logged out. The predicate is exactly

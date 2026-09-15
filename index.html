@@ -1377,13 +1377,96 @@
     $('adminClose').onclick = () => { show('adminModal', false); };
     $('adminModal').onclick = (e) => { if (e.target === $('adminModal')) show('adminModal', false); };
 
-    async function adminCall(action, extra = {}) {
+    // This modal was written against an older API and speaks a slightly different
+    // dialect: seven of its eight action names no longer exist, and it reads
+    // {ok, message, dbHost} where the API returns {success, ...}. Adapting here means
+    // the handlers below did not have to be rewritten.
+    const ACTION_MAP = {
+      list_keys: 'keys',
+      generate_keys: 'generate_key',
+      update_notice: 'set_notice',
+      update_database: 'switch_db',
+      test: 'test_db',
+      set_premium: 'set_premium',
+    };
+
+    async function adminPost(action, extra = {}) {
       const res = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, password: adminPassword, ...extra }),
       });
-      return res.json();
+      return res.json().catch(() => ({ error: 'The server sent a response the page could not read.' }));
+    }
+
+    // The API returns used_phone; the modal renders usedPhone.
+    const shapeKey = (r) => ({
+      key: r.key,
+      status: r.status,
+      usedPhone: r.used_phone || r.usedPhone || '',
+    });
+
+    async function adminCall(action, extra = {}) {
+      // "status" used to return the database host alongside the counters; the API
+      // exposes those separately.
+      if (action === 'status') {
+        const [stats, db] = await Promise.all([adminPost('stats'), adminPost('current_db')]);
+        if (stats.error) return { ok: false, error: stats.error };
+        return {
+          ok: true,
+          dbHost: db.host || '—',
+          notice: stats.notice || '',
+          premiumMode: !!stats.premiumMode,
+          keysLeft: stats.keysLeft,
+          totalSessions: stats.totalSessions,
+          onlineNow: stats.onlineNow,
+        };
+      }
+
+      // loadPremium() needs the mode AND the key counts, which the API keeps in two
+      // places -- stats for the flag, keys for the rows.
+      if (action === 'get_premium') {
+        const [stats, k] = await Promise.all([adminPost('stats'), adminPost('keys')]);
+        if (stats.error) return { ok: false, error: stats.error };
+        const keys = (k.keys || []).map(shapeKey);
+        return {
+          ok: true,
+          mode: stats.premiumMode ? 'on' : 'off',
+          keysTotal: keys.length,
+          keysUsed: keys.filter((x) => x.status === 'used').length,
+          recentKeys: keys.slice(0, 20),
+        };
+      }
+
+      // The button says GENERATE 5 KEYS; the API mints one per call.
+      if (action === 'generate_keys') {
+        const want = Number(extra.count) || 5;
+        const made = [];
+        for (let i = 0; i < want; i++) {
+          const r = await adminPost('generate_key');
+          if (r.error) return { ok: false, error: r.error };
+          if (r.key) made.push(r.key);
+        }
+        return {
+          ok: true,
+          keys: made,
+          message: `Generated ${made.length} key${made.length === 1 ? '' : 's'}.`,
+        };
+      }
+
+      const data = await adminPost(ACTION_MAP[action] || action, extra);
+      if (data.error) return { ok: false, error: data.error };
+      const ok = data.success !== false;
+      const out = { ok, ...data };
+
+      if (action === 'update_notice') out.message = 'Notice saved.';
+      if (action === 'update_database') out.message = ok ? 'Database switched.' : (data.message || 'Could not switch.');
+      if (action === 'test') out.message = data.message || (ok ? 'Connection OK.' : 'Could not connect.');
+      if (action === 'set_premium') out.message = data.premiumMode ? 'Premium mode is ON.' : 'Premium mode is OFF.';
+
+      if (action === 'list_keys') out.keys = (data.keys || []).map(shapeKey);
+
+      return out;
     }
 
     function adminMsg(msg, isError) {
