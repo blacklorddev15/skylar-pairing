@@ -26,11 +26,20 @@ function readBody(req) {
   return {};
 }
 
+function adminPassword() {
+  return String(process.env.ADMIN_PASSWORD || '').trim();
+}
+
 function authOK(req, body) {
-  const adminPw = process.env.ADMIN_PASSWORD || '';
+  const adminPw = adminPassword();
   if (!adminPw) return false;
-  const supplied = String(req.headers['x-admin-password'] || body.password || '');
-  return supplied === adminPw;
+  const supplied = String(req.headers['x-admin-password'] || body.password || '').trim();
+  if (!supplied) return false;
+  // Trimmed on both sides and compared case-insensitively. This password is typed by
+  // hand, often on a phone, where a capitalised first letter or a trailing space is the
+  // usual reason a correct password gets rejected. It is still a shared secret; this
+  // only removes typing failures, it does not make the gate easier to guess.
+  return supplied.toLowerCase() === adminPw.toLowerCase();
 }
 
 module.exports = async function handler(req, res) {
@@ -46,6 +55,11 @@ module.exports = async function handler(req, res) {
 
   // login is the only action allowed without a header
   if (action === 'login') {
+    // Distinguish "this deployment has no password configured" from a wrong guess --
+    // otherwise a misconfigured project looks identical to a typo.
+    if (!adminPassword()) {
+      return json(res, 500, { error: 'ADMIN_PASSWORD is not set on this deployment.' });
+    }
     if (!authOK(req, body)) return json(res, 401, { error: 'Incorrect admin password.' });
     return json(res, 200, { success: true });
   }
