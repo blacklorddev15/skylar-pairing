@@ -86,7 +86,7 @@ $('switchDbBtn').addEventListener('click', async () => {
   box.className = 'status-box show info';
   const d = await api('switch_db', { url });
   if (d.success) {
-    box.textContent = '✅ Switched to: ' + d.url;
+    box.textContent = '✅ Switched to: ' + (d.host || d.urlMasked || 'the new database');
     box.className = 'status-box show ok';
     $('dbUrl').value = '';
     await refreshAll();

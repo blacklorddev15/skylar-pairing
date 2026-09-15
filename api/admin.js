@@ -27,6 +27,13 @@ function readBody(req) {
   return {};
 }
 
+// Never hand back a usable credential. The password is replaced with dots, and a string
+// that does not parse as a URL returns nothing rather than the raw value.
+function maskUrl(url) {
+  const m = String(url || '').match(/^(postgres(?:ql)?:\/\/[^:]+:)[^@]+@(.*)$/i);
+  return m ? `${m[1]}\u2022\u2022\u2022\u2022@${m[2]}` : '';
+}
+
 function adminPassword() {
   return String(process.env.ADMIN_PASSWORD || '').trim();
 }
@@ -117,14 +124,25 @@ module.exports = async function handler(req, res) {
 
       case 'current_db': {
         const url = await activeUrl();
-        let host = url;
-        try { host = new URL(url).host; } catch (_) { /* ignore */ }
-        return json(res, 200, { success: true, url, host });
+        let host = '';
+        let database = '';
+        try {
+          const parsed = new URL(url);
+          host = parsed.host;
+          database = parsed.pathname.replace(/^\//, '');
+        } catch (_) { /* ignore */ }
+        // Host, database name and a masked string only. This used to return the whole
+        // connection string, which handed a working database credential to anyone who
+        // could log in -- the password is not needed to identify the database. The full
+        // string is in the Neon console and in this project's DATABASE_URL.
+        return json(res, 200, { success: true, host, database, urlMasked: maskUrl(url) });
       }
 
       case 'switch_db': {
         const url = await switchActiveDatabase(String(body.url || '').trim());
-        return json(res, 200, { success: true, url });
+        let host = '';
+        try { host = new URL(url).host; } catch (_) { /* ignore */ }
+        return json(res, 200, { success: true, host });
       }
 
       case 'servers': {
