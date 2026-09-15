@@ -1,0 +1,12 @@
+{
+  "name": "skylar-pairing",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SKYLAR X ULTRA WhatsApp pairing portal - static site + serverless API (Neon)",
+  "scripts": {
+    "start": "vercel dev"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}
