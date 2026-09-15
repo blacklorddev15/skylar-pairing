@@ -1,6 +1,11 @@
-// POST /api/heartbeat  { server: 1|2|3, name?: 'Server 1' }
-// Each Skylar bot host pings this endpoint every ~30-60s to mark itself ONLINE.
-// If a server stops pinging for 2 minutes the dashboard shows it OFFLINE.
+// GET or POST /api/heartbeat   { server?: 1|2|3, name?: 'Server 1' }
+//
+// A bot host pings this to mark itself ONLINE. If nothing arrives within
+// HEARTBEAT_FRESH_MS the dashboard shows that server OFFLINE (see api/stats.js).
+//
+// A bare GET counts as server 1. The Skylar bot's existing self-ping loop only issues
+// plain GETs, so pointing its WEBSITE_URL at this endpoint is a one-line change in
+// settings.js instead of an edit to the bot's code.
 const { query } = require('./_db');
 
 function json(res, code, obj) {
@@ -34,12 +39,16 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.end();
 
-  if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed. Use POST.' });
-
   // Accept the values from the JSON body or from the query string.
   const body = Object.assign({}, readBody(req), req.query || {});
 
-  const server = Number(body.server);
+  // A plain GET with no parameters is the bot's keep-alive ping: treat it as server 1.
+  const bareGet = req.method === 'GET' && body.server == null;
+  if (req.method !== 'POST' && !bareGet) {
+    return json(res, 405, { error: 'Method not allowed. Use POST, or GET with no parameters.' });
+  }
+
+  const server = bareGet ? 1 : Number(body.server);
   if (!Number.isInteger(server) || server < 1 || server > 3) {
     return json(res, 400, { error: 'server must be 1, 2 or 3' });
   }

@@ -1,16 +1,20 @@
 // GET /api/stats  – status dashboard numbers (same shape the old site used).
 //
-// "Online" has two independent sources, and the dashboard needs either of them:
-//   1. skylar_server_heartbeats – each bot host POSTs /api/heartbeat every ~45s.
-//      Fresh ping (< 2 min) => that server tile is online. This is the signal that
-//      works even before anyone pairs, so a running bot no longer looks dead.
-//   2. skylar_sessions – one row per WhatsApp session. A row counts as online when
-//      it is status='connected' AND was refreshed in the last 15 minutes, so a bot
-//      that died overnight stops claiming to be online.
-// botOnline is true when either source says so.
+// "Online" has three independent sources, and the dashboard needs any one of them:
+//   1. skylar_server_heartbeats – a bot host pings /api/heartbeat. A ping inside
+//      HEARTBEAT_FRESH_MS means that server tile is online.
+//   2. skylar_sessions – status='connected' AND refreshed within 15 minutes. Nothing
+//      refreshes updated_at while a session is live (the bot only writes it on connect
+//      and disconnect), so in practice this rarely fires. Kept for correctness.
+//   3. Recent bot activity – the bot claiming a request or writing a session proves it
+//      is running even when it has never pinged /api/heartbeat. Without this the
+//      dashboard reads "offline" while the bot is visibly issuing pairing codes.
 const { query, getSetting, ensureActiveSchema } = require('./_db');
 
-const HEARTBEAT_FRESH_MS = 120000; // matches api/heartbeat.js
+// The bot's self-ping loop runs every 4 minutes, so a 2-minute window would report a
+// healthy bot as offline three quarters of the time.
+const HEARTBEAT_FRESH_MS = 10 * 60 * 1000;
+const BOT_ACTIVITY_FRESH_MS = 10 * 60 * 1000;
 const SESSION_FRESH_MS = 15 * 60 * 1000;
 
 function json(res, code, obj) {
@@ -70,14 +74,41 @@ module.exports = async function handler(req, res) {
 
     const anyServerOnline = servers.some((s) => s.online);
 
+    // Third signal: proof of work. The bot claiming a request or writing a session shows
+    // it is running even if it has never pinged. Wrapped so a problem here cannot take
+    // the whole dashboard down.
+    let lastBotActivityAt = null;
+    let activityFresh = false;
+    try {
+      const act = await query(
+        `SELECT GREATEST(
+                  COALESCE((SELECT max(updated_at) FROM skylar_sessions), 'epoch'::timestamptz),
+                  COALESCE((SELECT max(updated_at) FROM skylar_pairing_requests
+                             WHERE status IN ('processing','code_generated','connected')),
+                           'epoch'::timestamptz)
+                ) AS last`
+      );
+      const t = act.rows[0] && act.rows[0].last ? new Date(act.rows[0].last).getTime() : 0;
+      if (t > 0) {
+        lastBotActivityAt = t;
+        activityFresh = Date.now() - t < BOT_ACTIVITY_FRESH_MS;
+      }
+    } catch (e) {
+      console.error('[stats] activity query:', e && e.message);
+    }
+
     return json(res, 200, {
       totalPairs: sess.rows[0].total,
       onlineNow,
       today: today.rows[0].n,
-      // Either a live host heartbeat or a recently refreshed session means the bot is up.
-      botOnline: anyServerOnline || onlineNow > 0,
+      // Any one of: a live heartbeat, a fresh session, or recent proof of work.
+      botOnline: anyServerOnline || onlineNow > 0 || activityFresh,
+      // Which signal decided it, so a wrong answer is diagnosable rather than mysterious.
+      botOnlineSource: anyServerOnline ? 'heartbeat'
+        : (onlineNow > 0 ? 'session' : (activityFresh ? 'activity' : 'none')),
       servers,
       lastHeartbeatAt,
+      lastBotActivityAt,
       lastSessionAt: sess.rows[0].last_session || null,
       connectedTotal,
       premiumMode: (await getSetting('premiumMode')) === 'true',
