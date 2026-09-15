@@ -98,6 +98,18 @@ module.exports = async function handler(req, res) {
         return json(res, 200, { sessions: rows });
       }
 
+      // Removes ONE paired user. This only clears the database row: revoking the WhatsApp
+      // link itself is the bot's job (/delpair), which also deletes ./sessions/<id>.
+      case 'delete_session': {
+        const id = String(body.id == null ? '' : body.id).trim().slice(0, 200);
+        if (!id) return json(res, 400, { error: 'Missing session id.' });
+        const { rows } = await query(
+          'DELETE FROM skylar_sessions WHERE id = $1 RETURNING id', [id]
+        );
+        if (!rows.length) return json(res, 404, { error: 'No such session.' });
+        return json(res, 200, { success: true, deleted: rows[0].id });
+      }
+
       case 'keys': {
         const { rows } = await query(
           'SELECT id, key, status, used_phone, used_at, created_at FROM skylar_premium_keys ORDER BY id DESC LIMIT 100'
