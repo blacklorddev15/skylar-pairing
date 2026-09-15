@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- mirrors the portal palette: #07090e with cyan #67e8f9 and pink #f472b6 -->
+    <color name="bg">#FF07090E</color>
+    <color name="panel">#FF0A1018</color>
+    <color name="cyan">#FF67E8F9</color>
+    <color name="cyan_dim">#FF22D3EE</color>
+    <color name="pink">#FFF472B6</color>
+    <color name="text">#FFE7F6FF</color>
+    <color name="muted">#FF8FA8BD</color>
+</resources>

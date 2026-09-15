@@ -51,7 +51,22 @@ Linked to the Vercel project `skylar-pairing`. Pushing to `main` deploys to prod
 `countries.json` (dial-code list), `background.jpg` (page artwork),
 `skylar-x-ultra-1.2.apk` (Android wrapper — its source project is separate and not committed here).
 
-## Deployment
+## Android app
 
-Linked to the Vercel project `skylar-pairing` (production branch: `main`).
-Pushing to `main` deploys to production automatically.
+`skylar-x-ultra.apk` is the app — a WebView wrapper for this portal
+(`com.aether.pairportal`, minSdk 24). The site's download button points at that
+**stable filename**, so publishing a new build never requires editing `index.html`.
+
+| Path | What it is |
+|---|---|
+| `skylar-x-ultra.apk` | the build the site serves — stable name |
+| `apk/` | every version, kept for pinning and rollback |
+| `android/` | the Gradle project, so the app can be rebuilt |
+| `apk/README.md` | the release steps |
+
+The Android source is committed so a change (icon, name, target URL) is a normal commit
+rather than a hunt for a zip. `android/debug.keystore` is deliberately **not** committed,
+and `build/`, `.gradle/` and `dist/` are gitignored.
+
+Builds here are debug-signed: Android warns about an unknown developer and the app is
+debuggable. Build a release-signed APK before promoting the download widely.

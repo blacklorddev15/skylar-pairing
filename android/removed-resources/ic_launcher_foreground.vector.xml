@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive-icon foreground: two interlocking rings, matching the generated PNG mipmaps.
+     Content stays inside the 66dp safe zone of the 108dp canvas. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M 31,54 a 13,13 0 1,0 26,0 a 13,13 0 1,0 -26,0"
+        android:strokeColor="#FF67E8F9"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M 51,54 a 13,13 0 1,0 26,0 a 13,13 0 1,0 -26,0"
+        android:strokeColor="#FFF472B6"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+</vector>
